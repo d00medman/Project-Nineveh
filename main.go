@@ -61,9 +61,17 @@ func GetObservation() *C.char {
 }
 
 //export TakeAction
-func TakeAction(btn int) {
+func TakeAction(btn int) C.float {
 	emu := handle[0]
-	emu.Act(btn)
+	reward := emu.Act(btn)
+	return C.float(reward)
+}
+
+//export IsGameOver
+func IsGameOver() bool {
+	emu := handle[0]
+	gameOver := emu.IsGameOver()
+	return gameOver
 }
 
 //export CloseEmulator

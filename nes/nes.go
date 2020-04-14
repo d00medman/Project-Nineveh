@@ -142,6 +142,8 @@ func NewNESFromReader(gamename string, reader io.Reader, options *Options) (nes 
 			return nil, err
 		}
 		gamename = rom.GameName()
+		fmt.Printf("Nineveh is playing %v\n", gamename)
+
 		switch region {
 		case NTSC:
 			cpuDivisor = rp2ago3.NTSCCPUClockDivisor
@@ -181,6 +183,7 @@ func NewNESFromReader(gamename string, reader io.Reader, options *Options) (nes 
 		return
 	}
 
+	//todo: actually remove the audio, as the system is unnecessary, incomplete, and actually causes problems in running the emulator
 	//audio, err = NewAudio(audioFrequency, audioSampleSize)
 
 	//if err != nil {
@@ -750,6 +753,9 @@ func (nes *NES) ProcessToFrame(displayScreen bool) (colors []uint8, err error) {
 	}
 	//fmt.Printf("CPU cycle loop for frame %v finished with %v cycles\n", nes.frameCount, cycleCount)
 
+	/*
+	Frame pool almost certainly entirely inadequate
+	 */
 	colors = nes.framePool.Get().([]uint8)
 	// Right now, display screen only generates static jpgs. Would like the ability to recover entire run as a gif.
 	// seems to me that this would be doable, but would require some more robust quit logic, which is something I would

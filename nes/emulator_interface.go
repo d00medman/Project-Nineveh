@@ -1,8 +1,10 @@
+// todo: move the interface and all other nineveh files out of the nes package and into a new nineveh package
 package nes
 
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 )
 
@@ -10,6 +12,8 @@ type EmulatorInterface struct {
 	console *NES
 	frameSkipRate int
 	displayCount int
+	//todo: use this to ensure more consistent output of screen state
+	currentPixels []uint8
 }
 
 // todo: frame skip rate as a settable value
@@ -43,11 +47,12 @@ func (emulatorinterface *EmulatorInterface) Observe() []uint8 {
 }
 
 // Method to input actions
-func (emulatorinterface *EmulatorInterface) Act(btn int) {
+func (emulatorinterface *EmulatorInterface) Act(btn int) (reward float32) {
 	var hold bool
 	button := One
 	var actionName string
 
+	// todo: refactor to have a release option as well
 	switch btn {
 	case 0:
 		button = A
@@ -153,6 +158,46 @@ func (emulatorinterface *EmulatorInterface) Act(btn int) {
 			log.Printf("Error during process to frame: %s \n", err)
 		}
 	}
+
+	return emulatorinterface.console.getReward()
+}
+
+func (nes *NES) getReward() (reward float32) {
+	switch nes.GameName {
+	case "Castlevania":
+		//fmt.Println("Getting current score of castlevania")
+		/*
+		Per https://datacrystal.romhacking.net/wiki/Castlevania:RAM_map, memory addresses of the score
+		0x07FC	Ones/Tenths of points	In pseudo Decimal (Ex.: $08, $09, $10...)
+		0x07FD	Hundreds/Thousands of points	Ditto.
+		0x07FE	Ten Thousands/Hundred Thousands of points
+		 */
+		ones := float32(nes.CPU.Memory.Fetch(0x07FC))
+		hundreds := float32(nes.CPU.Memory.Fetch(0x07FD)) * 100
+		thousands := float32(nes.CPU.Memory.Fetch(0x07FE)) * 1000
+		//log.Printf("result of fetching for memory addresses thousands (0x07FE): %v, hundreds (0x07FD): %v, ones (0x07FC) %v \n", thousands, hundreds, ones)
+		/*
+		todo: This isn't actually the reward, its really just the score. Need to come up with some methodology for counting the score
+		 */
+		return thousands + hundreds + ones
+	default:
+		return rand.Float32()
+	}
+}
+
+func (nes *NES) isGameOver() bool {
+	switch nes.GameName {
+	case "Castlevania":
+		livesLeft := nes.CPU.Memory.Fetch(0x002A)
+		log.Printf("Lives left: %v\n", livesLeft)
+		return livesLeft <= 0
+	default:
+		return true
+	}
+}
+
+func (emulatorinterface *EmulatorInterface) IsGameOver() bool {
+	return emulatorinterface.console.isGameOver()
 }
 
 func (emulatorinterface *EmulatorInterface) Close() {
