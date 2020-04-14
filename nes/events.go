@@ -59,16 +59,33 @@ func (e *FrameEvent) String() string {
 	return "FrameEvent"
 }
 
+/*
+At this point, the "frame event" is pretty wildly mangled. Going to need to do some finagling if I want this system
+to be human controllable
+ */
 func (e *FrameEvent) Process(nes *NES) {
 	if nes.state != Running {
+		fmt.Println("state not running, no frame event")
 		return
 	}
 
 	if nes.recorder != nil {
+		fmt.Println("recording during frame event")
 		nes.recorder.Input() <- e.Colors
 	}
-
-	nes.video.Input() <- e.Colors
+	nes.frameCount++
+	// If runningi n headless mode, I've found some problems with
+	if nes.headless {
+		//fmt.Println("Headless true during frame event")
+		/*
+		I think I could probably replace the frame pool with something a bit less transient, this way I will not have to forward by a frame to
+		return an observation
+		*/
+		nes.framePool.Put(e.Colors)
+	} else {
+		//fmt.Println("Headless false during frame event")
+		nes.video.Input() <- e.Colors
+	}
 }
 
 func (e *FrameEvent) Flag() uint {
@@ -92,7 +109,7 @@ func (e *SampleEvent) Process(nes *NES) {
 		nes.audioRecorder.Input() <- e.Sample
 	}
 
-	nes.audio.Input() <- e.Sample
+	//nes.audio.Input() <- e.Sample
 }
 
 func (e *SampleEvent) Flag() uint {
@@ -111,12 +128,16 @@ func (e *ControllerEvent) String() string {
 
 func (e *ControllerEvent) Process(nes *NES) {
 	if nes.state != Running {
+		fmt.Println("not running on controller event")
 		return
 	}
 
+	//fmt.Printf("Execute controller event %v\n", e.Button)
 	if e.Down {
+		//fmt.Printf("key down for %v\n", e.Button)
 		nes.controllers.KeyDown(e.Controller, e.Button)
 	} else {
+		//fmt.Printf("key up for %v\n", e.Button)
 		nes.controllers.KeyUp(e.Controller, e.Button)
 	}
 }
@@ -168,6 +189,8 @@ func (e *RecordEvent) String() string {
 }
 
 func (e *RecordEvent) Process(nes *NES) {
+	fmt.Println("processing record event")
+
 	if nes.recorder != nil {
 		nes.recorder.Record()
 	}

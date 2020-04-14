@@ -36,3 +36,5 @@ TAGS
 *.nst
 *.NES
 *.sav
+
+.idea/

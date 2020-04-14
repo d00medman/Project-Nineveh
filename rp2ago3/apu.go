@@ -1,6 +1,6 @@
 package rp2ago3
 
-import "github.com/nwidger/nintengo/m65go2"
+import "../m65go2"
 
 type Control uint8
 type Status uint8

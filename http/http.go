@@ -12,8 +12,8 @@ import (
 
 	"encoding/hex"
 
-	"github.com/nwidger/nintengo/m65go2"
-	"github.com/nwidger/nintengo/nes"
+	"../m65go2"
+	"../nes"
 )
 
 type Page struct {

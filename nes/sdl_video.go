@@ -9,7 +9,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/go-gl/gl"
+	"github.com/go-gl/gl/all-core/gl"
 	"github.com/go-gl/glu"
 	"github.com/scottferg/Go-SDL/sdl"
 )
@@ -45,7 +45,7 @@ type SDLVideo struct {
 	fps           float64
 }
 
-func NewVideo(caption string, events chan Event, framePool *sync.Pool, fps float64) (video *SDLVideo, err error) {
+func NewSdlVideo(caption string, events chan Event, framePool *sync.Pool, fps float64) (video *SDLVideo, err error) {
 	video = &SDLVideo{
 		input:     make(chan []uint8),
 		events:    events,

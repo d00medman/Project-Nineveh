@@ -3,6 +3,7 @@
 package nes
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -91,9 +92,11 @@ type Azul3DVideo struct {
 	overscan      bool
 	caption       string
 	fps           float64
+	displayCount int
 }
 
 func NewVideo(caption string, events chan Event, framePool *sync.Pool, fps float64) (video *Azul3DVideo, err error) {
+	fmt.Println("init azul3d video")
 	video = &Azul3DVideo{
 		input:     make(chan []uint8, 128),
 		events:    events,
@@ -102,6 +105,7 @@ func NewVideo(caption string, events chan Event, framePool *sync.Pool, fps float
 		overscan:  true,
 		caption:   caption,
 		fps:       fps,
+		displayCount: 0,
 	}
 
 	return
@@ -278,14 +282,14 @@ func (video *Azul3DVideo) handleInput(ev keyboard.ButtonEvent, w *window.Window,
 func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 	done := make(chan bool)
 
-	// Create a simple shader.
+	// Create a simple shader. Unclear what the purpose of a shader is
 	shader := gfx.NewShader("SimpleShader")
 	shader.GLSL = &gfx.GLSLSources{
 		Vertex:   glslVert,
 		Fragment: glslFrag,
 	}
 
-	// Setup a camera using an orthographic projection.
+	// Setup a camera using an orthographic projection. Orthographic projection is a means of representing three-dimensional objects in two dimensions.
 	cam := camera.NewOrtho(d.Bounds())
 
 	// Move the camera back two units away from the card.
@@ -477,6 +481,7 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 }
 
 func (video *Azul3DVideo) Run() {
+	fmt.Println("running with azul3d")
 	props := window.NewProps()
 
 	props.SetSize(512, 480)
@@ -488,3 +493,9 @@ func (video *Azul3DVideo) Run() {
 func (video *Azul3DVideo) SetCaption(caption string) {
 	video.caption = caption
 }
+
+// Blank methods, used by the headless video, but not actually needed by the display
+func (video *Azul3DVideo) OutputScreenImage(colors []uint8) { return }
+func (video *Azul3DVideo) AddImageToRecording(colors []uint8) { return }
+func (video *Azul3DVideo) OutputRunRecording() { return }
+

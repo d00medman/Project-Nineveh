@@ -2,7 +2,10 @@
 
 package nes
 
-import "time"
+import (
+	//"fmt"
+	"time"
+)
 
 const (
 	DefaultFPSNTSC float64 = 60.0988
@@ -47,13 +50,17 @@ func (fps *FPS) Delay() {
 	// next frame
 	fps.frames++
 
+	//fmt.Printf("hits fps delay, frame: %v \n", fps.frames)
+
 	// get/calc ticks
 	current := uint64(time.Now().UnixNano()) / 1e6
 	target := fps.ticks + uint64(fps.frames*fps.rate)
 
 	if fps.enabled && current <= target {
+		//fmt.Println("hits fps enabled sleep if")
 		time.Sleep(time.Duration((target - current) * 1e6))
 	} else {
+		//fmt.Println("hits fps enabled else")
 		fps.frames = 0.0
 		fps.ticks = uint64(time.Now().UnixNano()) / 1e6
 	}

@@ -1,6 +1,6 @@
 package rp2ago3
 
-import "github.com/nwidger/nintengo/m65go2"
+import "../m65go2"
 
 const NTSCCPUClockDivisor float32 = 3
 const PALCPUClockDivisor float32 = 3.2

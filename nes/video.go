@@ -15,6 +15,10 @@ type Video interface {
 	Events() chan Event
 	Run()
 	SetCaption(caption string)
+	//DisplayScreen(colors []uint8)
+	OutputScreenImage(colors []uint8)
+	AddImageToRecording(colors []uint8)
+	OutputRunRecording()
 }
 
 var RGBAPalette []color.Color = []color.Color{
@@ -117,6 +121,7 @@ func (video *JPEGRecorder) Input() chan []uint8 {
 
 func (video *JPEGRecorder) Record() {
 	if video.frame != nil {
+		fmt.Println("starting jpeg record")
 		fo, _ := os.Create(fmt.Sprintf("frame.jpg"))
 		w := bufio.NewWriter(fo)
 		jpeg.Encode(w, video.frame, &jpeg.Options{Quality: 100})

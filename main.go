@@ -1,87 +1,99 @@
 // +build !js
+//Methodology cribbed from this https://medium.com/@ben.mcclelland/an-adventure-into-cgo-calling-go-code-with-c-b20aa6637e75
 
 package main
 
+//#include <stdio.h>
+//#include <errno.h>
+//#include <stdlib.h>
+import "C"
+
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
+	"./nes"
+	"bytes"
+	"strconv"
 
-	"flag"
-
-	"github.com/mitchellh/go-homedir"
-	"github.com/nwidger/nintengo/http"
-	"github.com/nwidger/nintengo/nes"
-	"gopkg.in/yaml.v2"
+	//"unsafe"
 )
 
-func LoadConfig(options *nes.Options, filename string) (err error) {
-	var buf []byte
+// Not clear if I NEED to use an array, can for sure see this approach being unstable, but need to just get something up and running
+var handle []*nes.EmulatorInterface
 
-	if buf, err = ioutil.ReadFile(filename); err != nil {
-		return
+//export NewNintendo
+func NewNintendo(filename *C.char, displayMode *C.char, frameSkipRate C.int) (rc int) {
+	options := &nes.Options{
+		Region: "NTSC",
+		Display: C.GoString(displayMode),
 	}
-
-	if err = yaml.Unmarshal(buf, options); err != nil {
-		fmt.Printf("*** Error loading config: %s\n", err)
-		return
-	}
-
-	return
+	//nameString := C.GoString(filename)
+	h := nes.NewEmulatorInterface(C.GoString(filename), int(frameSkipRate), options)
+	handle = append(handle, h)
+	return len(handle) - 1
 }
 
-func main() {
-	filename := ""
-
-	options := &nes.Options{}
-
-	flag.StringVar(&options.Region, "region", "NTSC", "system region to emulate: NTSC | PAL")
-	flag.BoolVar(&options.CPUDecode, "cpu-decode", false, "decode CPU instructions")
-	flag.StringVar(&options.Recorder, "recorder", "", "recorder to use: none | jpeg | gif")
-	flag.StringVar(&options.AudioRecorder, "audio-recorder", "", "recorder to use: none | wav")
-	flag.StringVar(&options.CPUProfile, "cpu-profile", "", "write CPU profile to file")
-	flag.StringVar(&options.MemProfile, "mem-profile", "", "write memory profile to file")
-	flag.StringVar(&options.HTTPAddress, "http", "", "HTTP service address (e.g., ':6060')")
-	flag.StringVar(&options.Listen, "listen", "", "Listen at address as master (e.g., ':8080')")
-	flag.StringVar(&options.Connect, "connect", "", "Connect to address as slave, <rom-file> will be ignored (e.g., 'localhost:8080')")
-	flag.Parse()
-
-	filename, err := homedir.Expand("~/.nintengorc")
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-	} else {
-		if _, err = os.Stat(filename); !os.IsNotExist(err) {
-			if err = LoadConfig(options, filename); err != nil {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
-			}
-		}
-	}
-
-	if len(flag.Args()) != 1 {
-		if len(options.Connect) == 0 {
-			fmt.Fprintf(os.Stderr, "usage: <rom-file>\n")
-			return
-		}
-	} else {
-		filename = flag.Arg(0)
-	}
-
-	nes, err := nes.NewNES(filename, options)
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		return
-	}
-
-	if options.HTTPAddress != "" {
-		neserv := http.NewNEServer(nes, options.HTTPAddress)
-		fmt.Println(options.HTTPAddress)
-		go neserv.Run()
-	}
-
-	err = nes.Run()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-	}
+//export RunNintendo
+func RunNintendo() {
+	emu := handle[0]
+	emu.Start()
 }
+
+//export GetObservation
+func GetObservation() *C.char {
+	emu := handle[0]
+	output := emu.Observe()
+	var buffer bytes.Buffer
+	for i := 0; i < len(output); i++ {
+		buffer.WriteString(strconv.Itoa(int(output[i])))
+		if i != len(output)-1 {
+			buffer.WriteString(",")
+		}
+	}
+	sendString := buffer.String()
+	//fmt.Println(output)
+	//outputBytes, _ := json.Marshal(output)
+	//sendString := string(outputBytes[:])
+	//fmt.Println(sendString)
+	//fmt.Println("**end of go code**")
+	cSend := C.CString(sendString)
+	// Going to see what happens if I try this w/o defer first
+	//defer C.free(unsafe.Pointer(cSend))
+	return cSend
+}
+
+//export TakeAction
+func TakeAction(btn int) {
+	emu := handle[0]
+	emu.Act(btn)
+}
+
+//export CloseEmulator
+func CloseEmulator()  {
+	emu := handle[0]
+	emu.Close()
+}
+
+//export Reset
+func Reset() {
+	emu := handle[0]
+	emu.Reset()
+}
+
+//export OneFrameAdvance
+func OneFrameAdvance() {
+	emu := handle[0]
+	emu.OneFrameAdvance()
+}
+
+//export OpenToStart
+func OpenToStart() {
+	emu := handle[0]
+	emu.OpenToStart()
+}
+
+//export EndRecording
+func EndRecording() {
+	emu := handle[0]
+	emu.EndRecording()
+}
+
+func main() {}

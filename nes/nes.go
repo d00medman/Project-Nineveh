@@ -9,19 +9,18 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"sync"
-
 	"os"
 	"runtime"
 	"runtime/pprof"
+	"sync"
 
 	"encoding/json"
 
 	"archive/zip"
 
-	"github.com/nwidger/nintengo/m65go2"
-	"github.com/nwidger/nintengo/rp2ago3"
-	"github.com/nwidger/nintengo/rp2cgo2"
+	"../m65go2"
+	"../rp2ago3"
+	"../rp2cgo2"
 )
 
 //go:generate stringer -type=RunState
@@ -64,6 +63,9 @@ type NES struct {
 	master        bool
 	bridge        *Bridge
 	framePool     *sync.Pool
+	frameCount    uint64
+	frameCutoff   uint64
+	headless bool
 }
 
 type Options struct {
@@ -76,6 +78,7 @@ type Options struct {
 	HTTPAddress   string
 	Listen        string
 	Connect       string
+	Display       string
 }
 
 func NewNES(filename string, options *Options) (nes *NES, err error) {
@@ -99,6 +102,7 @@ func NewNESFromReader(gamename string, reader io.Reader, options *Options) (nes 
 	var rom ROM
 
 	region := RegionFromString(options.Region)
+	//fmt.Println("read region")
 
 	switch region {
 	case NTSC, PAL:
@@ -108,9 +112,10 @@ func NewNESFromReader(gamename string, reader io.Reader, options *Options) (nes 
 	}
 
 	audioFrequency := 44100
-	audioSampleSize := 2048
+	//audioSampleSize := 2048
 
 	cpu := rp2ago3.NewRP2A03(audioFrequency)
+	//fmt.Println("open CPU")
 
 	if options.CPUDecode {
 		cpu.EnableDecode()
@@ -158,26 +163,39 @@ func NewNESFromReader(gamename string, reader io.Reader, options *Options) (nes 
 	events := make(chan Event)
 	framePool := &sync.Pool{New: func() interface{} { return make([]uint8, rp2cgo2.FrameSize) }}
 
-	video, err = NewVideo(gamename, events, framePool, DefaultFPS)
+	var headless bool
+	switch options.Display {
+	case "headless":
+		video, err = NewHeadlessVideo(gamename, events, framePool, DefaultFPS)
+		headless = true
+	default:
+		video, err = NewVideo(gamename, events, framePool, DefaultFPS)
+		headless = false
+	}
+	//video, err = NewVideo(gamename, events, framePool, DefaultFPS)
+	//video, err = NewHeadlessVideo(gamename, events, framePool, DefaultFPS)
+	//fmt.Println("launch video")
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error creating video: %v", err))
 		return
 	}
 
-	audio, err = NewAudio(audioFrequency, audioSampleSize)
+	//audio, err = NewAudio(audioFrequency, audioSampleSize)
 
-	if err != nil {
-		err = errors.New(fmt.Sprintf("Error creating audio: %v", err))
-		return
-	}
+	//if err != nil {
+	//	err = errors.New(fmt.Sprintf("Error creating audio: %v", err))
+	//	return
+	//}
 
 	switch options.Recorder {
 	case "none":
 		// none
 	case "jpeg":
+		fmt.Println("launch jpeg recorder")
 		recorder, err = NewJPEGRecorder()
 	case "gif":
+		fmt.Println("launch gif recorder")
 		recorder, err = NewGIFRecorder()
 	}
 
@@ -229,6 +247,9 @@ func NewNESFromReader(gamename string, reader io.Reader, options *Options) (nes 
 		master:        master,
 		bridge:        bridge,
 		framePool:     framePool,
+		frameCount: 0,
+		frameCutoff: 128,
+		headless: headless,
 	}
 
 	bridge.nes = nes
@@ -485,7 +506,9 @@ func (nes *NES) step() (cycles uint16, err error) {
 	nes.PPUQuota += float32(cycles) * nes.CPUDivisor
 
 	for nes.PPUQuota >= 1.0 {
+		//fmt.Printf("Executing PPU quota loop with PPU quota: %v at cycle %v \n", nes.PPUQuota, cycles)
 		if colors := nes.PPU.Execute(); colors != nil {
+			//fmt.Printf("Hits color output at cycle %v \n", cycleCount)
 			nes.frame(colors)
 			nes.fps.Delay()
 		}
@@ -508,6 +531,7 @@ func (nes *NES) step() (cycles uint16, err error) {
 
 func (nes *NES) runAsSlave() (err error) {
 	var cycles uint16
+	fmt.Println("Running nes as slave")
 	for nes.state != Quitting {
 		pkt := <-nes.bridge.incoming
 		if pkt.Ev.String() != "LoadStateEvent" {
@@ -547,6 +571,8 @@ func (nes *NES) runAsMaster() (err error) {
 
 	nes.state = Running
 
+	fmt.Println("Running nes as master")
+
 	for nes.state != Quitting {
 	ProcessingEventLoop:
 		for nes.bridge.active {
@@ -583,6 +609,7 @@ func (nes *NES) runAsMaster() (err error) {
 
 func (nes *NES) frame(colors []uint8) {
 	// Generate a heartbeat each frame
+	//fmt.Printf("hits frame heartbeat\n")
 	if nes.bridge.active {
 		nes.bridge.outgoing <- Packet{
 			Tick: nes.Tick,
@@ -602,6 +629,7 @@ func (nes *NES) frame(colors []uint8) {
 	e.Process(nes)
 }
 
+//audio sample, thus unlikely to be relevant for my purposes
 func (nes *NES) sample(sample int16) {
 	e := &SampleEvent{
 		Sample: sample,
@@ -609,7 +637,7 @@ func (nes *NES) sample(sample int16) {
 
 	e.Process(nes)
 }
-
+// Purpose of this function is unclear
 func init() {
 	runtime.LockOSThread()
 }
@@ -624,9 +652,10 @@ func (nes *NES) Run() (err error) {
 
 	nes.state = Running
 
-	go nes.audio.Run()
+	//go nes.audio.Run()
 	go nes.processEvents()
 
+	//Once again, seems as though the master/slave distinction is only really relevant in the internet play context
 	go func() {
 		if err := nes.runProcessors(); err != nil {
 			fmt.Println(err)
@@ -666,6 +695,7 @@ func (nes *NES) Run() (err error) {
 
 	if nes.recorder != nil {
 		nes.recorder.Quit()
+		//nes.recorder.Record()
 	}
 
 	if nes.audioRecorder != nil {
@@ -686,6 +716,49 @@ func (nes *NES) Run() (err error) {
 	if nes.master {
 		err = nes.ROM.SaveBattery()
 	}
+
+	return
+}
+
+// Alternately, could be the reset?
+func (nes *NES) Start() {
+	fmt.Println(nes.ROM)
+
+	if nes.master {
+		nes.ROM.LoadBattery()
+	}
+	nes.Reset()
+
+	go nes.processEvents()
+}
+
+func (nes *NES) ProcessToFrame(displayScreen bool) (colors []uint8, err error) {
+	var cycleCount uint16 = 0
+	nes.state = Running
+	go nes.processEvents()
+	//go nes.video.Run()
+	//fmt.Println("Running processors for single frame")
+	for cycleCount < 29780 {
+		//if cycleCount % 1000 == 0 {
+		//	fmt.Printf("Cycle %v hit \n", cycleCount)
+		//}
+		cycles, err := nes.step()
+		cycleCount += cycles
+		if err != nil {
+			log.Printf("Error during stepping: %s \n", err)
+		}
+	}
+	//fmt.Printf("CPU cycle loop for frame %v finished with %v cycles\n", nes.frameCount, cycleCount)
+
+	colors = nes.framePool.Get().([]uint8)
+	// Right now, display screen only generates static jpgs. Would like the ability to recover entire run as a gif.
+	// seems to me that this would be doable, but would require some more robust quit logic, which is something I would
+	// like to include anyways
+	if displayScreen {
+		nes.video.OutputScreenImage(colors)
+	}
+
+	nes.video.AddImageToRecording(colors)
 
 	return
 }

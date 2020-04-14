@@ -1,0 +1,1 @@
+go run nintengo Super_mario_brothers.nes

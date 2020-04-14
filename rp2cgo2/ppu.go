@@ -8,8 +8,8 @@ import (
 	"image/jpeg"
 	"os"
 
-	"github.com/nwidger/nintengo/m65go2"
-	"github.com/nwidger/nintengo/rp2ago3"
+	"../m65go2"
+	"../rp2ago3"
 )
 
 //go:generate stringer -type=Mirroring

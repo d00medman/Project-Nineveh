@@ -1,3 +1,7 @@
+/*
+I think that the bridge is meant for network connections; at least that is what the "packet" and encoding indicates
+to me. Probably not relevant for my use case
+ */
 package nes
 
 import (
@@ -61,6 +65,7 @@ func newBridge(nes *NES, addr string) (bridge *Bridge) {
 }
 
 func (bridge *Bridge) runAsMaster() error {
+	fmt.Println("run bridge as master")
 	if len(bridge.addr) == 0 {
 		return nil
 	}
@@ -99,6 +104,7 @@ func (bridge *Bridge) runAsSlave() error {
 	if len(bridge.addr) == 0 {
 		return nil
 	}
+	fmt.Println("run bridge as slave")
 
 	conn, err := net.Dial("tcp", bridge.addr)
 	if err != nil {
