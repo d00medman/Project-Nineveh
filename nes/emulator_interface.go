@@ -14,9 +14,10 @@ type EmulatorInterface struct {
 	frameSkipRate int
 	displayCount int
 	//todo: use this to ensure more consistent output of screen state
-	currentPixels []uint8
+	currentObservation []uint8
 	//todo: delete me when done testing
 	blankPixels []uint8
+	blankTotal int
 }
 
 // todo: frame skip rate as a settable value
@@ -27,7 +28,7 @@ func NewEmulatorInterface(filename string, frameSkipRate int, options *Options) 
 		fmt.Fprintf(os.Stderr, "Accept error: %s\n", err)
 	}
 
-	//todo: dleete
+	//todo: delete
 	blank := make([]uint8, 61440)
 	for i := 0; i < 61440; i++ {
 		blank[i] = 0
@@ -38,6 +39,7 @@ func NewEmulatorInterface(filename string, frameSkipRate int, options *Options) 
 		frameSkipRate: frameSkipRate,
 		// todo: delete when no longer needed
 		blankPixels: blank,
+		blankTotal: 0,
 	}
 
 	// why do I need to return here but did not in the other files?
@@ -52,9 +54,7 @@ func (emulatorinterface *EmulatorInterface) Start(){
 }
 
 func (emulatorinterface *EmulatorInterface) Observe() (colors []uint8) {
-	// Getting observations still requires processing a single frame forward. This is likely a problem
-	//colors, _ := emulatorinterface.console.ProcessToFrame(true)
-	colors = emulatorinterface.currentPixels
+	colors = emulatorinterface.currentObservation
 	emulatorinterface.console.video.OutputScreenImage(colors)
 	return
 }
@@ -172,7 +172,7 @@ func (emulatorinterface *EmulatorInterface) Act(btn int) (reward float32) {
 
 	frameForward := func(frames int) {
 		for i := 0; i < frames; i++ {
-			emulatorinterface.oneFrameAdvance()
+			emulatorinterface.oneFrameAdvance(false)
 		}
 	}
 
@@ -190,13 +190,14 @@ func (emulatorinterface *EmulatorInterface) Act(btn int) (reward float32) {
 		if emulatorinterface.console.controllers.KeyIsDown(0, button) {
 			fmt.Printf("releasing %v from hold\n", button)
 			emulatorinterface.console.events <- getButtonAction(button, false)
+			emulatorinterface.oneFrameAdvance(false)
 			advancedFrames++
 		}
 		emulatorinterface.console.events <- getButtonAction(button, true)
 		// Skip by the frame rate minus the frames we advanced to ensure the button up events register
 		frameForward(emulatorinterface.frameSkipRate - advancedFrames)
 		emulatorinterface.console.events <- getButtonAction(button, false)
-		emulatorinterface.oneFrameAdvance()
+		emulatorinterface.oneFrameAdvance(false)
 	case "hold":
 		if emulatorinterface.console.controllers.KeyIsDown(0, button) {
 			fmt.Printf("%v is already being held: this is a non-action\n", button)
@@ -232,6 +233,7 @@ func (nes *NES) getReward() (reward float32) {
 		//log.Printf("result of fetching for memory addresses thousands (0x07FE): %v, hundreds (0x07FD): %v, ones (0x07FC) %v \n", thousands, hundreds, ones)
 		/*
 		todo: This isn't actually the reward, its really just the score. Need to come up with some methodology for counting the score
+		Its also calculated incorrectly
 		 */
 		return thousands + hundreds + ones
 	default:
@@ -265,7 +267,7 @@ func (emulatorinterface *EmulatorInterface) Reset() {
 	// Currently, the first 15 frames of running seem to be blank. going to forward through these for the time being
 	fmt.Println("Advancing first 15 frames to warm up system")
 	for i := 0; i < 16; i++ {
-		emulatorinterface.oneFrameAdvance()
+		emulatorinterface.oneFrameAdvance(true)
 	}
 }
 
@@ -274,19 +276,20 @@ func (emulatorinterface *EmulatorInterface) OpenToStart() {
 	emulatorinterface.console.LoadState()
 }
 
-func (emulatorinterface *EmulatorInterface) oneFrameAdvance() {
+func (emulatorinterface *EmulatorInterface) oneFrameAdvance(warmup bool) {
 	colors, cycleCount, err := emulatorinterface.console.ProcessToFrame()
-
-	// todo: here for debugging irregular screen output, should be removed when this issue is resolved
-	if reflect.DeepEqual(colors, emulatorinterface.blankPixels) {
-		fmt.Printf("Blank output from frame processing at frame %v, which completed in %v cycles\n", emulatorinterface.console.frameCount, cycleCount)
-	}
 
 	if err != nil {
 		log.Printf("Error during process to frame: %s \n", err)
 	}
 
-	emulatorinterface.currentPixels = colors
+	if !reflect.DeepEqual(colors, emulatorinterface.blankPixels) {
+		emulatorinterface.currentObservation = colors
+	} else if !warmup {
+		// Can probably remove this block, as its logic no longer seems to really track frame misfires, which seem to have largely been ameliorated by the change to using a select statement
+		emulatorinterface.blankTotal++
+		fmt.Printf("Blank output from frame processing at frame %v, which completed in %v cycles. %v blank outputs total\n", emulatorinterface.console.frameCount, cycleCount, emulatorinterface.blankTotal)
+	}
 }
 
 func (emulatorinterface *EmulatorInterface) EndRecording() {

@@ -74,14 +74,11 @@ func (e *FrameEvent) Process(nes *NES) {
 		nes.recorder.Input() <- e.Colors
 	}
 	nes.frameCount++
-	// If runningi n headless mode, I've found some problems with
+	// Can probably remove this block as well
 	if nes.headless {
-		//fmt.Println("Headless true during frame event")
-		/*
-		I think I could probably replace the frame pool with something a bit less transient, this way I will not have to forward by a frame to
-		return an observation
-		*/
+		//fmt.Sprintf("Frame event at frame %v, colors: %v", nes.frameCount, e.Colors[8000:8256])
 		nes.framePool.Put(e.Colors)
+		nes.video.Input() <- e.Colors
 	} else {
 		//fmt.Println("Headless false during frame event")
 		nes.video.Input() <- e.Colors

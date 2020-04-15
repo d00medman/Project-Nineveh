@@ -743,9 +743,17 @@ func (nes *NES) ProcessToFrame() (colors []uint8, cycleCount uint16, err error) 
 			log.Printf("Error during stepping: %s \n", err)
 		}
 	}
-	colors = nes.framePool.Get().([]uint8)
+	//fmt.Println("after cpu cycle loop")
 
-	nes.video.AddImageToRecording(colors)
+	// This seems to by and large resolve the general skippiness I was experiencing earlier
+	select {
+	case colors = <-nes.video.Input():
+		//fmt.Printf("Colors derived from input channel at frame %v\n", nes.frameCount)
+		nes.video.AddImageToRecording(colors)
+	default:
+		colors = nes.framePool.Get().([]uint8)
+		//fmt.Printf("Deriving colors from frame pool at frame %v\n", nes.frameCount)
+	}
 
 	return
 }

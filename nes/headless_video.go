@@ -98,7 +98,7 @@ func NewHeadlessVideo(caption string,
 	fps float64) (video *HeadlessVideo, err error) {
 	fmt.Println("init headless video")
 
-	gif := &gif.GIF{
+	runGif := &gif.GIF{
 		Image:     []*image.Paletted{},
 		Delay:     []int{},
 		LoopCount: 0xfffffff,
@@ -113,7 +113,7 @@ func NewHeadlessVideo(caption string,
 		caption:   caption,
 		fps:       fps,
 		displayCount: 0,
-		gif: gif,
+		gif: runGif,
 	}
 
 	return
@@ -164,8 +164,8 @@ func (video *HeadlessVideo) SetCaption(caption string) {
 	video.caption = caption
 }
 
-func (video *HeadlessVideo) GetScreenImage(colors []uint8) *image.Paletted {
-	frame := image.NewPaletted(image.Rect(0, 0, 256, 240), HeadlessPalette)
+func (video *HeadlessVideo) GetScreenImage(colors []uint8) (frame *image.Paletted) {
+	frame = image.NewPaletted(image.Rect(0, 0, 256, 240), HeadlessPalette)
 	x, y := 0, 0
 	for _, c := range colors {
 		frame.Set(x, y, video.palette[c])
@@ -178,21 +178,22 @@ func (video *HeadlessVideo) GetScreenImage(colors []uint8) *image.Paletted {
 			x++
 		}
 	}
-	return frame
+	return
 }
 
 func (video *HeadlessVideo) AddImageToRecording(colors []uint8) {
 	frame := video.GetScreenImage(colors)
 	video.gif.Image = append(video.gif.Image, frame)
-	video.gif.Delay = append(video.gif.Delay, 3)
+	video.gif.Delay = append(video.gif.Delay, 5)
 }
 
 func (video *HeadlessVideo) OutputRunRecording() {
 	if video.gif != nil {
-		fmt.Println("*** Recording stopped")
+		fileName := fmt.Sprintf("output/frame.gif")
+		fmt.Printf("Output recording to %s\n", fileName)
 
-		//todo: will want a degree of variance in name of gif; already did this for jpeg
-		fo, _ := os.Create(fmt.Sprintf("output/frame.gif"))
+		//todo: will want a degree of variance in name of gif, especially given that multiple environments will be at work at once; already did this for jpeg
+		fo, _ := os.Create(fileName)
 		w := bufio.NewWriter(fo)
 		if err := gif.EncodeAll(w, video.gif); err != nil {
 			log.Printf("Error in outputting gif: %s \n", err)
