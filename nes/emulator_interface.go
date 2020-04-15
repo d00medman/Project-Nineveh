@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"reflect"
 )
 
 type EmulatorInterface struct {
@@ -14,23 +15,33 @@ type EmulatorInterface struct {
 	displayCount int
 	//todo: use this to ensure more consistent output of screen state
 	currentPixels []uint8
+	//todo: delete me when done testing
+	blankPixels []uint8
 }
 
 // todo: frame skip rate as a settable value
-func NewEmulatorInterface(filename string, frameSkipRate int, options *Options) *EmulatorInterface {
+func NewEmulatorInterface(filename string, frameSkipRate int, options *Options) (emulatorinterface *EmulatorInterface) {
 	emulator, err := NewNES(filename, options)
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Accept error: %s\n", err)
 	}
 
-	emulatorinterface := &EmulatorInterface{
+	//todo: dleete
+	blank := make([]uint8, 61440)
+	for i := 0; i < 61440; i++ {
+		blank[i] = 0
+	}
+
+	emulatorinterface = &EmulatorInterface{
 		console: emulator,
 		frameSkipRate: frameSkipRate,
+		// todo: delete when no longer needed
+		blankPixels: blank,
 	}
 
 	// why do I need to return here but did not in the other files?
-	return emulatorinterface
+	return
 }
 
 // Runs the emulator for a human user
@@ -40,95 +51,128 @@ func (emulatorinterface *EmulatorInterface) Start(){
 	}
 }
 
-func (emulatorinterface *EmulatorInterface) Observe() []uint8 {
+func (emulatorinterface *EmulatorInterface) Observe() (colors []uint8) {
 	// Getting observations still requires processing a single frame forward. This is likely a problem
-	colors, _ := emulatorinterface.console.ProcessToFrame(true)
-	return colors
+	//colors, _ := emulatorinterface.console.ProcessToFrame(true)
+	colors = emulatorinterface.currentPixels
+	emulatorinterface.console.video.OutputScreenImage(colors)
+	return
+}
+
+func getActionFields(btn int) (button Button, actionType string, actionName string) {
+	switch btn {
+	case 0:
+		button = A
+		actionType = "hold"
+		actionName = "hold A"
+	case 1:
+		button = A
+		actionType = "release"
+		actionName = "release A"
+	case 2:
+		button = A
+		actionType = "press"
+		actionName = "press A"
+	case 3:
+		button = B
+		actionType = "hold"
+		actionName = "hold B"
+	case 4:
+		button = B
+		actionType = "release"
+		actionName = "release A"
+	case 5:
+		button = B
+		actionType = "press"
+		actionName = "press B"
+	case 6:
+		button = Select
+		actionType = "hold"
+		actionName = "hold Select"
+	case 7:
+		button = Select
+		actionType = "release"
+		actionName = "release Select"
+	case 8:
+		button = Select
+		actionType = "press"
+		actionName = "press Select"
+	case 9:
+		button = Start
+		actionType = "release"
+		actionName = "release Start"
+	case 10:
+		button = Start
+		actionType = "release"
+		actionName = "release Start"
+	case 11:
+		button = Start
+		actionType = "press"
+		actionName = "press Start"
+	case 12:
+		button = Up
+		actionType = "hold"
+		actionName = "hol Up"
+	case 13:
+		button = Up
+		actionType = "release"
+		actionName = "release Up"
+	case 14:
+		button = Up
+		actionType = "press"
+		actionName = "press Up"
+	case 15:
+		button = Down
+		actionType = "hold"
+		actionName = "hold Down"
+	case 16:
+		button = Down
+		actionType = "release"
+		actionName = "release Down"
+	case 17:
+		button = Down
+		actionType = "press"
+		actionName = "press Down"
+	case 18:
+		button = Left
+		actionType = "hold"
+		actionName = "hold Left"
+	case 19:
+		button = Left
+		actionType = "release"
+		actionName = "release Left"
+	case 20:
+		button = Left
+		actionType = "press"
+		actionName = "press Left"
+	case 21:
+		button = Right
+		actionType = "hold"
+		actionName = "hold Right"
+	case 22:
+		button = Right
+		actionType = "release"
+		actionName = "release Right"
+	case 23:
+		button = Right
+		actionType = "press"
+		actionName = "press Right"
+	default:
+		button = One
+		actionName = "No action"
+		actionType = "none"
+	}
+	return
 }
 
 // Method to input actions
 func (emulatorinterface *EmulatorInterface) Act(btn int) (reward float32) {
-	var hold bool
-	button := One
-	var actionName string
-
-	// todo: refactor to have a release option as well
-	switch btn {
-	case 0:
-		button = A
-		hold = true
-		actionName = "hold A"
-	case 1:
-		button = A
-		hold = false
-		actionName = "press A"
-	case 2:
-		button = B
-		hold = true
-		actionName = "hold B"
-	case 3:
-		button = B
-		hold = false
-		actionName = "press B"
-	case 4:
-		button = Select
-		hold = true
-		actionName = "hold Select"
-	case 5:
-		button = Select
-		hold = false
-		actionName = "press Select"
-	case 6:
-		button = Start
-		hold = true
-		actionName = "hold Start"
-	case 7:
-		button = Start
-		hold = false
-		actionName = "press Start"
-	case 8:
-		button = Up
-		hold = true
-		actionName = "hol Up"
-	case 9:
-		button = Up
-		hold = false
-		actionName = "press Up"
-	case 10:
-		button = Down
-		hold = true
-		actionName = "hold Down"
-	case 11:
-		button = Down
-		hold = false
-		actionName = "press Down"
-	case 12:
-		button = Left
-		hold = true
-		actionName = "hold Left"
-	case 13:
-		button = Left
-		hold = false
-		actionName = "press Left"
-	case 14:
-		button = Right
-		hold = true
-		actionName = "hold Right"
-	case 15:
-		button = Right
-		hold = false
-		actionName = "press Right"
-	default:
-		actionName = "No action"
-	}
-
+	button, actionType, actionName := getActionFields(btn)
 	log.Printf("%s selected\n", actionName)
 
-	frameForward := func() {
-		for i := 0; i < emulatorinterface.frameSkipRate; i++ {
-			if _, err := emulatorinterface.console.ProcessToFrame(false); err != nil {
-				log.Printf("Error during process to frame: %s \n", err)
-			}
+	frameForward := func(frames int) {
+		for i := 0; i < frames; i++ {
+			emulatorinterface.oneFrameAdvance()
 		}
 	}
 
@@ -140,23 +184,33 @@ func (emulatorinterface *EmulatorInterface) Act(btn int) (reward float32) {
 		}
 	}
 
-	// If this button is already being held, we want to first release the button before taking action on it
-	if emulatorinterface.console.controllers.KeyIsDown(0, button) {
-		fmt.Println("Releasing held button")
-		emulatorinterface.console.events <- getButtonAction(button, false)
-	}
-
-	if hold {
-		emulatorinterface.console.events <- getButtonAction(button, true)
-		frameForward()
-	} else {
-		emulatorinterface.console.events <- getButtonAction(button, true)
-		frameForward()
-		emulatorinterface.console.events <- getButtonAction(button, false)
-		// Process for one more frame to ensure that the button is actually up. Irregular behavior between the two cases strikes me as off
-		if _, err := emulatorinterface.console.ProcessToFrame(false); err != nil {
-			log.Printf("Error during process to frame: %s \n", err)
+	switch actionType {
+	case "press":
+		var advancedFrames = 1
+		if emulatorinterface.console.controllers.KeyIsDown(0, button) {
+			fmt.Printf("releasing %v from hold\n", button)
+			emulatorinterface.console.events <- getButtonAction(button, false)
+			advancedFrames++
 		}
+		emulatorinterface.console.events <- getButtonAction(button, true)
+		// Skip by the frame rate minus the frames we advanced to ensure the button up events register
+		frameForward(emulatorinterface.frameSkipRate - advancedFrames)
+		emulatorinterface.console.events <- getButtonAction(button, false)
+		emulatorinterface.oneFrameAdvance()
+	case "hold":
+		if emulatorinterface.console.controllers.KeyIsDown(0, button) {
+			fmt.Printf("%v is already being held: this is a non-action\n", button)
+		}
+		emulatorinterface.console.events <- getButtonAction(button, true)
+		frameForward(emulatorinterface.frameSkipRate)
+	case "release":
+		if !emulatorinterface.console.controllers.KeyIsDown(0, button) {
+			fmt.Printf("%v is not being held: this is a non-action\n", button)
+		}
+		emulatorinterface.console.events <- getButtonAction(button, false)
+		frameForward(emulatorinterface.frameSkipRate)
+	default:
+		frameForward(emulatorinterface.frameSkipRate)
 	}
 
 	return emulatorinterface.console.getReward()
@@ -209,11 +263,9 @@ func (emulatorinterface *EmulatorInterface) Reset() {
 	emulatorinterface.console.Reset()
 
 	// Currently, the first 15 frames of running seem to be blank. going to forward through these for the time being
-	fmt.Println("Advancing first 15 frames")
+	fmt.Println("Advancing first 15 frames to warm up system")
 	for i := 0; i < 16; i++ {
-		if _, err := emulatorinterface.console.ProcessToFrame(false); err != nil {
-			log.Printf("Error during process to frame: %s \n", err)
-		}
+		emulatorinterface.oneFrameAdvance()
 	}
 }
 
@@ -222,20 +274,19 @@ func (emulatorinterface *EmulatorInterface) OpenToStart() {
 	emulatorinterface.console.LoadState()
 }
 
-// Primarily for debugging at present. Should not be surfaced; remove when work is through
-func (emulatorinterface *EmulatorInterface) OneFrameAdvance() {
-	//colors, err := emulatorinterface.console.ProcessToFrame()
-	//if err != nil {
-	//	log.Printf("Error on output file creation: %s \n", err)
-	//}
-	//fmt.Println(colors)
+func (emulatorinterface *EmulatorInterface) oneFrameAdvance() {
+	colors, cycleCount, err := emulatorinterface.console.ProcessToFrame()
 
-	if _, err := emulatorinterface.console.ProcessToFrame(true); err != nil {
+	// todo: here for debugging irregular screen output, should be removed when this issue is resolved
+	if reflect.DeepEqual(colors, emulatorinterface.blankPixels) {
+		fmt.Printf("Blank output from frame processing at frame %v, which completed in %v cycles\n", emulatorinterface.console.frameCount, cycleCount)
+	}
+
+	if err != nil {
 		log.Printf("Error during process to frame: %s \n", err)
 	}
 
-	fmt.Println("OneFrameAdvance finished")
-	fmt.Println("******")
+	emulatorinterface.currentPixels = colors
 }
 
 func (emulatorinterface *EmulatorInterface) EndRecording() {

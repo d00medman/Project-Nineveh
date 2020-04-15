@@ -191,13 +191,12 @@ func (video *HeadlessVideo) OutputRunRecording() {
 	if video.gif != nil {
 		fmt.Println("*** Recording stopped")
 
-		fo, _ := os.Create(fmt.Sprintf("frame.gif"))
+		//todo: will want a degree of variance in name of gif; already did this for jpeg
+		fo, _ := os.Create(fmt.Sprintf("output/frame.gif"))
 		w := bufio.NewWriter(fo)
 		if err := gif.EncodeAll(w, video.gif); err != nil {
 			log.Printf("Error in outputting gif: %s \n", err)
 		}
-
-		//video.gif = nil
 	}
 }
 

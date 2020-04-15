@@ -343,6 +343,7 @@ func (nes *NES) SaveStateToWriter(writer io.Writer) (err error) {
 	return
 }
 
+//todo: create variant of method which enables opening of specific files
 func (nes *NES) LoadState() {
 	name := nes.GameName + ".nst"
 	reader, err := os.Open(name)
@@ -723,46 +724,26 @@ func (nes *NES) Run() (err error) {
 	return
 }
 
-// Alternately, could be the reset?
-func (nes *NES) Start() {
-	fmt.Println(nes.ROM)
-
-	if nes.master {
-		nes.ROM.LoadBattery()
-	}
-	nes.Reset()
-
-	go nes.processEvents()
-}
-
-func (nes *NES) ProcessToFrame(displayScreen bool) (colors []uint8, err error) {
-	var cycleCount uint16 = 0
+//todo: cyclecount return is for debugging and should be removed
+func (nes *NES) ProcessToFrame() (colors []uint8, cycleCount uint16, err error) {
+	//var cycleCount uint16 = 0
+	cycleCount = 0
 	nes.state = Running
+	/*
+	Seems likely to me that the screwiness of the output is directly related to the concurrency of event processing. Might consider
+	using a channel? Would ensure a degree of regularity in behavior. previously had some issues w/blocking on this account
+
+	Select statement was essentially designed to resolve these issues; believe they are likely to be the solution here as well
+	 */
 	go nes.processEvents()
-	//go nes.video.Run()
-	//fmt.Println("Running processors for single frame")
 	for cycleCount < 29780 {
-		//if cycleCount % 1000 == 0 {
-		//	fmt.Printf("Cycle %v hit \n", cycleCount)
-		//}
 		cycles, err := nes.step()
 		cycleCount += cycles
 		if err != nil {
 			log.Printf("Error during stepping: %s \n", err)
 		}
 	}
-	//fmt.Printf("CPU cycle loop for frame %v finished with %v cycles\n", nes.frameCount, cycleCount)
-
-	/*
-	Frame pool almost certainly entirely inadequate
-	 */
 	colors = nes.framePool.Get().([]uint8)
-	// Right now, display screen only generates static jpgs. Would like the ability to recover entire run as a gif.
-	// seems to me that this would be doable, but would require some more robust quit logic, which is something I would
-	// like to include anyways
-	if displayScreen {
-		nes.video.OutputScreenImage(colors)
-	}
 
 	nes.video.AddImageToRecording(colors)
 

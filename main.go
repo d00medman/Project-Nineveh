@@ -1,6 +1,8 @@
 // +build !js
 //Methodology cribbed from this https://medium.com/@ben.mcclelland/an-adventure-into-cgo-calling-go-code-with-c-b20aa6637e75
 
+//todo: determine how the ALE included its games; might need to zip rom files and game states to be viable
+
 package main
 
 //#include <stdio.h>
@@ -12,11 +14,9 @@ import (
 	"./nes"
 	"bytes"
 	"strconv"
-
-	//"unsafe"
 )
 
-// Not clear if I NEED to use an array, can for sure see this approach being unstable, but need to just get something up and running
+// todo: see if there is a "more elegant" way to retain this reference
 var handle []*nes.EmulatorInterface
 
 //export NewNintendo
@@ -48,30 +48,21 @@ func GetObservation() *C.char {
 			buffer.WriteString(",")
 		}
 	}
-	sendString := buffer.String()
-	//fmt.Println(output)
-	//outputBytes, _ := json.Marshal(output)
-	//sendString := string(outputBytes[:])
-	//fmt.Println(sendString)
-	//fmt.Println("**end of go code**")
-	cSend := C.CString(sendString)
-	// Going to see what happens if I try this w/o defer first
-	//defer C.free(unsafe.Pointer(cSend))
-	return cSend
+	return  C.CString(buffer.String())
 }
 
 //export TakeAction
 func TakeAction(btn int) C.float {
 	emu := handle[0]
-	reward := emu.Act(btn)
-	return C.float(reward)
+	//reward := emu.Act(btn)
+	return C.float(emu.Act(btn))
 }
 
 //export IsGameOver
 func IsGameOver() bool {
 	emu := handle[0]
-	gameOver := emu.IsGameOver()
-	return gameOver
+	//gameOver := emu.IsGameOver()
+	return emu.IsGameOver()
 }
 
 //export CloseEmulator
@@ -84,12 +75,6 @@ func CloseEmulator()  {
 func Reset() {
 	emu := handle[0]
 	emu.Reset()
-}
-
-//export OneFrameAdvance
-func OneFrameAdvance() {
-	emu := handle[0]
-	emu.OneFrameAdvance()
 }
 
 //export OpenToStart
