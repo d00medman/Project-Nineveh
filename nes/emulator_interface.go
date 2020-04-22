@@ -18,6 +18,7 @@ type EmulatorInterface struct {
 	//todo: delete me when done testing
 	blankPixels []uint8
 	blankTotal int
+	actionsTaken int
 }
 
 // todo: frame skip rate as a settable value
@@ -40,6 +41,7 @@ func NewEmulatorInterface(filename string, frameSkipRate int, options *Options) 
 		// todo: delete when no longer needed
 		blankPixels: blank,
 		blankTotal: 0,
+		actionsTaken: 0,
 	}
 
 	// why do I need to return here but did not in the other files?
@@ -168,7 +170,12 @@ func getActionFields(btn int) (button Button, actionType string, actionName stri
 // Method to input actions
 func (emulatorinterface *EmulatorInterface) Act(btn int) (reward float32) {
 	button, actionType, actionName := getActionFields(btn)
-	log.Printf("%s selected\n", actionName)
+	log.Printf("%s selected for action %v\n", actionName, emulatorinterface.actionsTaken)
+	// Don't want the agent accidentally pausing the thing. will eventually want this somewhere else
+	if button == Start {
+		//log.Printf("Use of start disallowed\n")
+		return 0
+	}
 
 	frameForward := func(frames int) {
 		for i := 0; i < frames; i++ {
@@ -184,11 +191,13 @@ func (emulatorinterface *EmulatorInterface) Act(btn int) (reward float32) {
 		}
 	}
 
+	//var nonAction bool = false
+
 	switch actionType {
 	case "press":
 		var advancedFrames = 1
 		if emulatorinterface.console.controllers.KeyIsDown(0, button) {
-			fmt.Printf("releasing %v from hold\n", button)
+			//fmt.Printf("releasing %v from hold\n", button)
 			emulatorinterface.console.events <- getButtonAction(button, false)
 			emulatorinterface.oneFrameAdvance(false)
 			advancedFrames++
@@ -200,42 +209,36 @@ func (emulatorinterface *EmulatorInterface) Act(btn int) (reward float32) {
 		emulatorinterface.oneFrameAdvance(false)
 	case "hold":
 		if emulatorinterface.console.controllers.KeyIsDown(0, button) {
-			fmt.Printf("%v is already being held: this is a non-action\n", button)
+			//fmt.Printf("%v is already being held: this is a non-action\n", button)
+			//nonAction = true
 		}
 		emulatorinterface.console.events <- getButtonAction(button, true)
 		frameForward(emulatorinterface.frameSkipRate)
 	case "release":
 		if !emulatorinterface.console.controllers.KeyIsDown(0, button) {
-			fmt.Printf("%v is not being held: this is a non-action\n", button)
+			//fmt.Printf("%v is not being held: this is a non-action\n", button)
+			//nonAction = true
 		}
 		emulatorinterface.console.events <- getButtonAction(button, false)
 		frameForward(emulatorinterface.frameSkipRate)
 	default:
 		frameForward(emulatorinterface.frameSkipRate)
 	}
+	emulatorinterface.actionsTaken++
 
+	//if nonAction {
+	//	// Penalize if the agent tries to take a non-action
+	//	reward = -1.0
+	//} else {
+	//	reward = emulatorinterface.console.getReward()
+	//}
 	return emulatorinterface.console.getReward()
 }
 
 func (nes *NES) getReward() (reward float32) {
 	switch nes.GameName {
 	case "Castlevania":
-		//fmt.Println("Getting current score of castlevania")
-		/*
-		Per https://datacrystal.romhacking.net/wiki/Castlevania:RAM_map, memory addresses of the score
-		0x07FC	Ones/Tenths of points	In pseudo Decimal (Ex.: $08, $09, $10...)
-		0x07FD	Hundreds/Thousands of points	Ditto.
-		0x07FE	Ten Thousands/Hundred Thousands of points
-		 */
-		ones := float32(nes.CPU.Memory.Fetch(0x07FC))
-		hundreds := float32(nes.CPU.Memory.Fetch(0x07FD)) * 100
-		thousands := float32(nes.CPU.Memory.Fetch(0x07FE)) * 1000
-		//log.Printf("result of fetching for memory addresses thousands (0x07FE): %v, hundreds (0x07FD): %v, ones (0x07FC) %v \n", thousands, hundreds, ones)
-		/*
-		todo: This isn't actually the reward, its really just the score. Need to come up with some methodology for counting the score
-		Its also calculated incorrectly
-		 */
-		return thousands + hundreds + ones
+		return nes.GetCastlevaniaScore()
 	default:
 		return rand.Float32()
 	}
@@ -245,7 +248,7 @@ func (nes *NES) isGameOver() bool {
 	switch nes.GameName {
 	case "Castlevania":
 		livesLeft := nes.CPU.Memory.Fetch(0x002A)
-		log.Printf("Lives left: %v\n", livesLeft)
+		//log.Printf("Lives left: %v\n", livesLeft)
 		return livesLeft <= 0
 	default:
 		return true
@@ -262,6 +265,7 @@ func (emulatorinterface *EmulatorInterface) Close() {
 }
 
 func (emulatorinterface *EmulatorInterface) Reset() {
+
 	emulatorinterface.console.Reset()
 
 	// Currently, the first 15 frames of running seem to be blank. going to forward through these for the time being
@@ -273,11 +277,15 @@ func (emulatorinterface *EmulatorInterface) Reset() {
 
 // Loads the starting state of the selected game
 func (emulatorinterface *EmulatorInterface) OpenToStart() {
+	emulatorinterface.actionsTaken = 0
 	emulatorinterface.console.LoadState()
+	for i := 0; i < 16; i++ {
+		emulatorinterface.oneFrameAdvance(true)
+	}
 }
 
 func (emulatorinterface *EmulatorInterface) oneFrameAdvance(warmup bool) {
-	colors, cycleCount, err := emulatorinterface.console.ProcessToFrame()
+	colors, _, err := emulatorinterface.console.ProcessToFrame()
 
 	if err != nil {
 		log.Printf("Error during process to frame: %s \n", err)
@@ -288,7 +296,7 @@ func (emulatorinterface *EmulatorInterface) oneFrameAdvance(warmup bool) {
 	} else if !warmup {
 		// Can probably remove this block, as its logic no longer seems to really track frame misfires, which seem to have largely been ameliorated by the change to using a select statement
 		emulatorinterface.blankTotal++
-		fmt.Printf("Blank output from frame processing at frame %v, which completed in %v cycles. %v blank outputs total\n", emulatorinterface.console.frameCount, cycleCount, emulatorinterface.blankTotal)
+		//fmt.Printf("Blank output from frame processing at frame %v, which completed in %v cycles. %v blank outputs total\n", emulatorinterface.console.frameCount, cycleCount, emulatorinterface.blankTotal)
 	}
 }
 

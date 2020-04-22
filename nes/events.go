@@ -129,6 +129,8 @@ func (e *ControllerEvent) Process(nes *NES) {
 		return
 	}
 
+	nes.getReward()
+
 	//fmt.Printf("Execute controller event %v\n", e.Button)
 	if e.Down {
 		//fmt.Printf("key down for %v\n", e.Button)
