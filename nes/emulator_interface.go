@@ -19,6 +19,7 @@ type EmulatorInterface struct {
 	blankPixels []uint8
 	blankTotal int
 	actionsTaken int
+	score float32
 }
 
 // todo: frame skip rate as a settable value
@@ -44,7 +45,6 @@ func NewEmulatorInterface(filename string, frameSkipRate int, options *Options) 
 		actionsTaken: 0,
 	}
 
-	// why do I need to return here but did not in the other files?
 	return
 }
 
@@ -88,77 +88,77 @@ func getActionFields(btn int) (button Button, actionType string, actionName stri
 		actionType = "press"
 		actionName = "press B"
 	case 6:
-		button = Select
-		actionType = "hold"
-		actionName = "hold Select"
-	case 7:
-		button = Select
-		actionType = "release"
-		actionName = "release Select"
-	case 8:
-		button = Select
-		actionType = "press"
-		actionName = "press Select"
-	case 9:
-		button = Start
-		actionType = "release"
-		actionName = "release Start"
-	case 10:
-		button = Start
-		actionType = "release"
-		actionName = "release Start"
-	case 11:
-		button = Start
-		actionType = "press"
-		actionName = "press Start"
-	case 12:
 		button = Up
 		actionType = "hold"
 		actionName = "hol Up"
-	case 13:
+	case 7:
 		button = Up
 		actionType = "release"
 		actionName = "release Up"
-	case 14:
+	case 8:
 		button = Up
 		actionType = "press"
 		actionName = "press Up"
-	case 15:
+	case 9:
 		button = Down
 		actionType = "hold"
 		actionName = "hold Down"
-	case 16:
+	case 10:
 		button = Down
 		actionType = "release"
 		actionName = "release Down"
-	case 17:
+	case 11:
 		button = Down
 		actionType = "press"
 		actionName = "press Down"
-	case 18:
+	case 12:
 		button = Left
 		actionType = "hold"
 		actionName = "hold Left"
-	case 19:
+	case 13:
 		button = Left
 		actionType = "release"
 		actionName = "release Left"
-	case 20:
+	case 14:
 		button = Left
 		actionType = "press"
 		actionName = "press Left"
-	case 21:
+	case 15:
 		button = Right
 		actionType = "hold"
 		actionName = "hold Right"
-	case 22:
+	case 16:
 		button = Right
 		actionType = "release"
 		actionName = "release Right"
-	case 23:
+	case 17:
 		button = Right
 		actionType = "press"
 		actionName = "press Right"
+	case 18:
+		button = Select
+		actionType = "hold"
+		actionName = "hold Select"
+	case 19:
+		button = Select
+		actionType = "release"
+		actionName = "release Select"
+	case 20:
+		button = Select
+		actionType = "press"
+		actionName = "press Select"
+	case 21:
+		button = Start
+		actionType = "release"
+		actionName = "release Start"
+	case 22:
+		button = Start
+		actionType = "release"
+		actionName = "release Start"
+	case 23:
+		button = Start
+		actionType = "press"
+		actionName = "press Start"
 	default:
 		button = One
 		actionName = "No action"
@@ -170,12 +170,13 @@ func getActionFields(btn int) (button Button, actionType string, actionName stri
 // Method to input actions
 func (emulatorinterface *EmulatorInterface) Act(btn int) (reward float32) {
 	button, actionType, actionName := getActionFields(btn)
-	log.Printf("%s selected for action %v\n", actionName, emulatorinterface.actionsTaken)
+
 	// Don't want the agent accidentally pausing the thing. will eventually want this somewhere else
 	if button == Start {
 		//log.Printf("Use of start disallowed\n")
 		return 0
 	}
+	log.Printf("%s selected for action %v\n", actionName, emulatorinterface.actionsTaken)
 
 	frameForward := func(frames int) {
 		for i := 0; i < frames; i++ {
@@ -232,13 +233,27 @@ func (emulatorinterface *EmulatorInterface) Act(btn int) (reward float32) {
 	//} else {
 	//	reward = emulatorinterface.console.getReward()
 	//}
-	return emulatorinterface.console.getReward()
+	return emulatorinterface.getReward()
 }
 
-func (nes *NES) getReward() (reward float32) {
+func (emulatorinterface *EmulatorInterface) getReward() (reward float32) {
+	/*
+	General formula for reward calculation in ALE seems to be
+	reward = current score - held score
+	held score = current score
+	 */
+	nes := emulatorinterface.console
 	switch nes.GameName {
 	case "Castlevania":
-		return nes.GetCastlevaniaScore()
+		score := nes.GetCastlevaniaScore()
+		reward = score - emulatorinterface.score
+		emulatorinterface.score = score
+		return
+	case "Mario_brothers":
+		score := nes.GetMarioBrothersScore()
+		reward = score - emulatorinterface.score
+		emulatorinterface.score = score
+		return
 	default:
 		return rand.Float32()
 	}
@@ -250,6 +265,9 @@ func (nes *NES) isGameOver() bool {
 		livesLeft := nes.CPU.Memory.Fetch(0x002A)
 		//log.Printf("Lives left: %v\n", livesLeft)
 		return livesLeft <= 0
+	case "Mario_brothers":
+		// Conditioned on only single player for mario brothers at present
+		return nes.CPU.Memory.Fetch(0x0048) <= 0
 	default:
 		return true
 	}
@@ -259,11 +277,13 @@ func (emulatorinterface *EmulatorInterface) IsGameOver() bool {
 	return emulatorinterface.console.isGameOver()
 }
 
+//todo: determine if this is being used, delete if it is not
 func (emulatorinterface *EmulatorInterface) Close() {
 	quit := &QuitEvent{}
 	emulatorinterface.console.events <- quit
 }
 
+//todo: determine if this is being used, delete if it is not
 func (emulatorinterface *EmulatorInterface) Reset() {
 
 	emulatorinterface.console.Reset()
@@ -277,6 +297,7 @@ func (emulatorinterface *EmulatorInterface) Reset() {
 
 // Loads the starting state of the selected game
 func (emulatorinterface *EmulatorInterface) OpenToStart() {
+	emulatorinterface.score = 0
 	emulatorinterface.actionsTaken = 0
 	emulatorinterface.console.LoadState()
 	for i := 0; i < 16; i++ {

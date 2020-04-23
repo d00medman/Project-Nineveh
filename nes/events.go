@@ -129,7 +129,7 @@ func (e *ControllerEvent) Process(nes *NES) {
 		return
 	}
 
-	nes.getReward()
+	//nes.getReward() // Primarily here for debugging purposes
 
 	//fmt.Printf("Execute controller event %v\n", e.Button)
 	if e.Down {
