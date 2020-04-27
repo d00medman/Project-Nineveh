@@ -5,6 +5,7 @@ import (
 	"strconv"
 )
 // TODO: determine how to best design this for multiple games. One large file will get unwieldy fast
+// maybe implement the game as an interface? methodology pretty consistent throughout
 // TODO: generate minimum action spaces
 func (nes *NES)convertScore(address uint16) (convertedVal int) {
 	raw := nes.CPU.Memory.Fetch(address)
@@ -44,6 +45,15 @@ func (nes *NES) GetMarioBrothersScore() (score float32) {
 	ones := float32(nes.convertScore(0x0095)) * 10
 	hundreds := float32(nes.convertScore(0x0096)) * 100
 	thousands := float32(nes.convertScore(0x0097)) * 1000
+	score = thousands + hundreds + ones
+	//log.Printf("score at frame %v: %v", nes.frameCount, score)
+	return
+}
+
+func (nes *NES) GetDonkeyKongScore() (score float32) {
+	ones := float32(nes.convertScore(0x0025)) * 10
+	hundreds := float32(nes.convertScore(0x0026)) * 100
+	thousands := float32(nes.convertScore(0x0027)) * 1000
 	score = thousands + hundreds + ones
 	//log.Printf("score at frame %v: %v", nes.frameCount, score)
 	return

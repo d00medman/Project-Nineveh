@@ -1,5 +1,10 @@
 // +build !sdl,!js
 
+/*
+Probably going to delete this file eventually; I think that if the emulator cannot be played by humans,
+there will be less potential for legal trouble
+ */
+
 package nes
 
 import (
@@ -497,5 +502,5 @@ func (video *Azul3DVideo) SetCaption(caption string) {
 // Blank methods, used by the headless video, but not actually needed by the display
 func (video *Azul3DVideo) OutputScreenImage(colors []uint8) { return }
 func (video *Azul3DVideo) AddImageToRecording(colors []uint8) { return }
-func (video *Azul3DVideo) OutputRunRecording() { return }
+func (video *Azul3DVideo) OutputRunRecording(outputFileName string) { return }
 

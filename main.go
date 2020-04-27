@@ -84,9 +84,9 @@ func OpenToStart() {
 }
 
 //export EndRecording
-func EndRecording() {
+func EndRecording(filename *C.char) {
 	emu := handle[0]
-	emu.EndRecording()
+	emu.EndRecording(C.GoString(filename))
 }
 
 func main() {}

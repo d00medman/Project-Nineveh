@@ -254,6 +254,11 @@ func (emulatorinterface *EmulatorInterface) getReward() (reward float32) {
 		reward = score - emulatorinterface.score
 		emulatorinterface.score = score
 		return
+	case "donkey_kong":
+		score := nes.GetDonkeyKongScore()
+		reward = score - emulatorinterface.score
+		emulatorinterface.score = score
+		return
 	default:
 		return rand.Float32()
 	}
@@ -268,6 +273,9 @@ func (nes *NES) isGameOver() bool {
 	case "Mario_brothers":
 		// Conditioned on only single player for mario brothers at present
 		return nes.CPU.Memory.Fetch(0x0048) <= 0
+	case "donkey_kong":
+		// Again, only relevant for single player
+		return nes.CPU.Memory.Fetch(0x0406) != 0
 	default:
 		return true
 	}
@@ -321,6 +329,6 @@ func (emulatorinterface *EmulatorInterface) oneFrameAdvance(warmup bool) {
 	}
 }
 
-func (emulatorinterface *EmulatorInterface) EndRecording() {
-	emulatorinterface.console.video.OutputRunRecording()
+func (emulatorinterface *EmulatorInterface) EndRecording(outputFileName string) {
+	emulatorinterface.console.video.OutputRunRecording(outputFileName)
 }

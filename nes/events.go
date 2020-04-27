@@ -129,9 +129,8 @@ func (e *ControllerEvent) Process(nes *NES) {
 		return
 	}
 
-	//nes.getReward() // Primarily here for debugging purposes
-
-	//fmt.Printf("Execute controller event %v\n", e.Button)
+	//zone := nes.CPU.Memory.Fetch(0x0053) // Primarily here for debugging purposes
+	//fmt.Printf("currently on zone %v\n", zone)
 	if e.Down {
 		//fmt.Printf("key down for %v\n", e.Button)
 		nes.controllers.KeyDown(e.Controller, e.Button)

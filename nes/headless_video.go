@@ -187,9 +187,9 @@ func (video *HeadlessVideo) AddImageToRecording(colors []uint8) {
 	video.gif.Delay = append(video.gif.Delay, 5)
 }
 
-func (video *HeadlessVideo) OutputRunRecording() {
+func (video *HeadlessVideo) OutputRunRecording(outputFileName string) {
 	if video.gif != nil {
-		fileName := fmt.Sprintf("output/frame.gif")
+		fileName := fmt.Sprintf("output/%v.gif", outputFileName)
 		fmt.Printf("Output recording to %s\n", fileName)
 
 		//todo: will want a degree of variance in name of gif, especially given that multiple environments will be at work at once; already did this for jpeg

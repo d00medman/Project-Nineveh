@@ -18,7 +18,7 @@ type Video interface {
 	//DisplayScreen(colors []uint8)
 	OutputScreenImage(colors []uint8)
 	AddImageToRecording(colors []uint8)
-	OutputRunRecording()
+	OutputRunRecording(outputFileName string)
 }
 
 var RGBAPalette []color.Color = []color.Color{
