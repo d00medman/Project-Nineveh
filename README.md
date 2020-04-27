@@ -10,10 +10,16 @@ Nineveh is a Modification of the [Nintengo](https://github.com/nwidger/nintengo)
 The system is designed with the intent of easy interfacing with the OpenAI [Gym](https://github.com/openai/gym). Unlike the ALE, which appears to have initially been desinged
 to integrate with C++ agents out of the box. Further extension would be needed to enable its control via pipes (which seems to be something of a pain to implement)
 
-At present, can either be launched in human playable mode or in headless mode. All agents will operate in headless mode. Each observation outputs a jpeg file; the option to output the entire
+At present, can either be launched in human playable mode or in headless mode. Human playable mode is for debugging purposes, and will likely end up stripped out of the final product to avoid legal trouble. All agents will operate in headless mode. Each observation outputs a jpeg file; the option to output the entire
 run to the current point as a gif is also present.
 
-At time of writing, There are some unresolved irregularities with the output of the pixels, and frames will occasionally be dropped in headless mode. Resolving this issue is a high priority.
+I named it Nineveh as a slant portmanteau of **NIN**tendo **E**n**V**ironm**E**nt, and I like to give my work names which are classical references. I might need to change the name to something drier like "NES Learning Environment" when I start to publicize it.
 
-Currently using Castlevania for my testing and ongoing proof of concept (see the Alucard repository). Ideally, would like to have a suite of games to match those in the Atari 57 benchmark.
-Will likely extend the Alucard proof of concept to also include Super Mario Brothers 3 before pivoting back to Wintermute (which will necessitate adding final fantasy)
+Currently have rudimentary reward and game over outputs for 
+- Mario Brothers
+- Donkey Kong
+- Castlevania
+
+Still need to figure out a method for delivering relevant roms (as well as a unified framework for the games)
+
+At present, working on a proof of concept using the Arcade game Donkey Kong.
